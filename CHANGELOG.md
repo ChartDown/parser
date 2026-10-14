@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (0.3.0)
+## 0.3.0
 
 The parser now implements [ChartDown 0.7](https://github.com/ChartDown/spec). Charts written for 0.3 to 0.6 parse the same, with no version warning, except that a chord quality written with an alias now takes its canonical form.
 
@@ -17,7 +17,7 @@ The parser now implements [ChartDown 0.7](https://github.com/ChartDown/spec). Ch
 - `READABLE_VERSIONS` reads 0.3 to 0.7; `SUPPORTED_VERSION` is `"0.7"`.
 
 - `chartdown/conformance`: the adapter for the official ChartDown conformance suite (spec Appendix B), with `toJSON(source)` and `display(source, { style, key })`. The package's own tests run the suite, pinned to a commit of github.com/ChartDown/spec.
-- The package's homepage and repository point to github.com/ChartDown/spec, where the language now lives.
+- The parser has its own repository, [github.com/ChartDown/parser](https://github.com/ChartDown/parser), in the ChartDown organization next to the spec; the package's homepage, repository and issues point there.
 
 ## 0.2.0
 

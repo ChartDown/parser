@@ -63,6 +63,20 @@ echo 'export * from "chartdown/conformance";' > adapter.mjs
 node conformance/run.mjs ./adapter.mjs
 ```
 
+## Contributing
+
+Issues and pull requests are welcome at
+[github.com/ChartDown/parser](https://github.com/ChartDown/parser). The language itself, its
+playground and its conformance suite live in [github.com/ChartDown/spec](https://github.com/ChartDown/spec);
+a change to the language starts there.
+
+```sh
+npm install
+npm run typecheck
+npm test          # unit tests, the pinned conformance suite and a packed install
+npm run format:check
+```
+
 ## License
 
 MIT. The ChartDown spec itself is public domain (CC0).

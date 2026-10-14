@@ -1,6 +1,6 @@
 {
   "name": "chartdown",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Parser for ChartDown (spec 0.7), a plain-text notation for Nashville Number System charts: sections, bars, numbers, keys and notes for each instrument. Reads charts written for 0.3 to 0.7, gives the JSON form and the play order, and passes the official conformance suite.",
   "keywords": [
     "chartdown",
@@ -9,10 +9,13 @@
     "music",
     "parser"
   ],
-  "homepage": "https://github.com/ChartDown/spec",
+  "homepage": "https://github.com/ChartDown/parser#readme",
+  "bugs": {
+    "url": "https://github.com/ChartDown/parser/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ChartDown/spec.git"
+    "url": "git+https://github.com/ChartDown/parser.git"
   },
   "license": "MIT",
   "type": "module",
@@ -45,6 +48,15 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
   }
 }
