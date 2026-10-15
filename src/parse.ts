@@ -5,13 +5,13 @@ import type { Chart, Key, Meter, ParseOptions, Row, Section, Warning } from "./t
 import { createWarning, type Warn } from "./warnings.js";
 
 /** The ChartDown version this parser reads and writes (R-00.4). */
-export const SUPPORTED_VERSION = "0.7";
+export const SUPPORTED_VERSION = "0.8";
 
 /**
  * The versions a chart may declare without a warning (R-00.4). Charts written for 0.4 and 0.5
  * parse the same in 0.6; a mark that was free text in them now has its meaning (spec 17).
  */
-export const READABLE_VERSIONS: readonly string[] = ["0.3", "0.4", "0.5", "0.6", "0.7"];
+export const READABLE_VERSIONS: readonly string[] = ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8"];
 
 function parseKey(text: string | undefined): Key {
   const match = /^([A-G][b#]?)(m?)/.exec(text ?? "C");
@@ -79,7 +79,15 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
     }
     const use = /^@use\s+(.+)$/i.exec(text);
     if (use) {
-      section.use = { name: (use[1] as string).trim(), line };
+      // Spec 5.2 (0.8): a count at the end, `3x` or `x3`, plays the copied rows that many times.
+      const counted = /^(.*?)\s+(?:(\d+)x|x(\d+))$/i.exec((use[1] as string).trim());
+      const name = counted ? (counted[1] as string) : (use[1] as string).trim();
+      const times = counted ? Number(counted[2] ?? counted[3]) : undefined;
+      section.use = { name, line };
+      if (times === 0) {
+        warn(line, "use-zero-times");
+        section.use.times = 1;
+      } else if (times !== undefined) section.use.times = times;
       continue;
     }
     // Directive names are read in any case (spec 15); a key it cannot read is a warning.

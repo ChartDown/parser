@@ -1,6 +1,6 @@
-// Reference copy of the ChartDown 0.7 playground parser, used only by
+// Reference copy of the ChartDown 0.8 playground parser, used only by
 // src/playground.test.ts to check that the TypeScript port matches it.
-// Source: github.com/ChartDown/spec, playground/index.html at 1e103c9 (ChartDown 0.7).
+// Source: github.com/ChartDown/spec, playground/index.html at 732dc25 (ChartDown 0.8).
 // Copyright (c) 2026 ChartDown contributors. MIT License.
 // Extracted verbatim (music helpers, roles, parser, play order and JSON form); `export` added at the end.
 "use strict";
@@ -61,8 +61,8 @@ const ROLE_ALIAS = {all:'all',band:'all',everyone:'all',drums:'drums',drum:'drum
 const ROLE_LABEL = {drums:'Drums',bass:'Bass',keys:'Keys',gtr:'Guitar',vox:'Vocals',sax:'Saxophone',tpt:'Trumpet',tbn:'Trombone',vln:'Violin'};
 let CUSTOM = {};
 // Spec 3: versions this parser reads. Any other is a warning, and the file is still read.
-const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7'];
-const roleLabel = r => ROLE_LABEL[r] || CUSTOM[r] || (r.charAt(0).toUpperCase() + r.slice(1));
+const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8'];
+const roleLabel = r => L.roles[r] || ROLE_LABEL[r] || CUSTOM[r] || (r.charAt(0).toUpperCase() + r.slice(1));
 function parseRoles(s){
   const parts = s.split(/[,\/&\s]+/).filter(Boolean).map(x => x.toLowerCase());
   if(!parts.length) return null;
@@ -264,7 +264,13 @@ function parse(src){
     if(!cur){ warn(n, 'Bars need a section first, like  ## Verse 1'); continue; }
     if(line.startsWith('>')){ cur.notes.push(parseNote(line.replace(/^>\s?/,''), n, warn)); continue; }
     const u = line.match(/^@use\s+(.+)$/i);
-    if(u){ cur.use = u[1].trim(); cur.useLine = n; continue; }
+    if(u){
+      // Spec 5.2: a count at the end (3x, or x3 as in 0.5) plays the copied rows that many times.
+      const c = u[1].trim().match(/^(.*?)\s+(?:(\d+)x|x(\d+))$/i);
+      cur.use = c ? c[1] : u[1].trim(); cur.useTimes = c ? +(c[2] || c[3]) : null; cur.useLine = n;
+      if(cur.useTimes === 0){ warn(n, 'A section plays at least once; 0x is read as 1x'); cur.useTimes = 1; }
+      continue;
+    }
     if(/^@key\b/i.test(line)){
       const kc = line.replace(/^@key\s*/i, '').match(/^([A-G][b#]?)(m?)\s*$/);
       if(kc){ docKey = kc[1]; docMinor = !!kc[2]; pendingLabel = kc[1] + kc[2]; } else warn(n, 'Write a key change like  @key A  or  @key F#m');
@@ -345,7 +351,7 @@ function analyze(doc, warn){
     if(f.b.cues.some(c => c.passes.length) && !inRep.has(i)) warn(f.b.line, 'A cue for one pass (like 2x) needs a repeat');
   });
   doc.sections.forEach(s => {
-    if(!s.rows.some(r => r.bars.some(b => b.re)))
+    if(!s.rows.some(r => r.bars.some(b => b.re)) && !(s.useTimes > 1))
       s.notes.filter(t => t.passes.length).forEach(t => warn(t.line, 'An MD note for one pass (like 2x) needs a repeat in its section'));
   });
   // Navigation marks.
@@ -368,6 +374,17 @@ function analyze(doc, warn){
   // Expand into the play order.
   const order = [];
   let i = 0, pass = 1, curRe = -1, inSpan = false, jumped = false, back = false, steps = 0, after = false;
+  // Spec 5.2: a section from @use Nx plays N times, each time as written (its own repeats, endings and passes start over).
+  const outer = new Map();
+  const again = k => {
+    const si = F[k].si, s = doc.sections[si];
+    if(jumped || !(s.useTimes > 1) || (F[k+1] && F[k+1].si === si)) return false;
+    const done = outer.get(si) || 1;
+    if(done >= s.useTimes) return false;
+    outer.set(si, done + 1);
+    i = F.findIndex(x => x.si === si); pass = 1; curRe = -1; inSpan = false; back = false;
+    return true;
+  };
   while(i < F.length && steps++ < 20000){
     const f = F[i];
     if(startToRe.has(i) && !back){
@@ -375,7 +392,7 @@ function analyze(doc, warn){
       pass = jumped ? (F[curRe].b.times || 2) : 1;
     }
     back = false;
-    if(f.b.endSet && !f.b.endSet.includes(pass)){ if(i === curRe) inSpan = false; i++; continue; }
+    if(f.b.endSet && !f.b.endSet.includes(pass)){ if(i === curRe) inSpan = false; if(!again(i)) i++; continue; }
     if(!f.b.endSet && !inSpan) pass = 1;
     order.push({section: f.si, bar: f.b.number, pass, jump: after});
     after = false;
@@ -386,7 +403,7 @@ function analyze(doc, warn){
       if(!jumped && pass < (f.b.times || 2)){ pass++; i = reStart.get(i); inSpan = true; back = true; continue; }
     }
     if(jump && !jumped && i === jump.i){ jumped = true; i = jump.w.startsWith('ds') ? segno : 0; pass = 1; inSpan = false; after = true; continue; }
-    i++;
+    if(!again(i)) i++;
   }
   doc.playOrder = order;
 }
@@ -410,7 +427,7 @@ function toJSON(doc){
     chartdown: doc.meta.chartdown || null,
     meta: doc.meta, key: doc.keyRoot, minor: doc.minor, numbering: SIX ? '6m' : '1m',
     sections: doc.sections.map(s => ({
-      name: s.name, use: s.use,
+      name: s.name, use: s.use, times: s.use ? s.useTimes || null : null,
       notes: s.notes.map(t => ({md:t.md, roles:roles(t.roles), passes:t.passes, text:t.text})),
       rows: s.rows.map(r => {
         const key = r.key || doc.keyRoot;

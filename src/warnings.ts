@@ -22,6 +22,7 @@ const MESSAGES: Record<WarningCode, (values: Values) => string> = {
     `This chart says ChartDown ${v.version}; this parser reads ${v.supported}`,
   "header-not-closed": () => "The header needs a closing --- line",
   "use-with-rows": () => "@use must be the only content line of a section; its own rows are kept",
+  "use-zero-times": () => "A section plays at least once; 0x is read as 1x",
   "bad-meter-directive": () => "Write a meter change like  @meter 3/4",
   "bad-tempo-directive": () => "Write a tempo change like  @tempo 96",
   "bad-numbering": () => "Numbering is  1m  or  6m",

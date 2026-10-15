@@ -148,7 +148,12 @@ export interface Section {
   notes: Note[];
   rows: Row[];
   /** The `@use` line, when the section reuses an earlier section's rows. */
-  use?: { name: string; line: number };
+  use?: {
+    name: string;
+    line: number;
+    /** `@use Name 3x`: how many times in a row the copied rows play (spec 5.2, ChartDown 0.8). */
+    times?: number;
+  };
 }
 
 export type WarningCode =
@@ -165,6 +170,7 @@ export type WarningCode =
   | "unsupported-version"
   | "header-not-closed"
   | "use-with-rows"
+  | "use-zero-times"
   | "unknown-cue-instrument"
   | "layer-no-section"
   | "layer-line"
