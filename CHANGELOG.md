@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The package description says it reads charts written for 0.3 to 0.8 (it said 0.7 in 0.4.0).
+
 ## 0.4.0
 
 The parser now implements [ChartDown 0.8](https://github.com/ChartDown/spec). Every valid 0.7 chart parses the same: in 0.7, `@use Name 3x` looked for a section called "Name 3x" and warned that it wasn't found.
