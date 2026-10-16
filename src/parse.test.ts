@@ -7,6 +7,8 @@ import {
   fixture,
   fixture06,
   fixture07,
+  fixture08,
+  EXAMPLES_08,
 } from "./test-helpers.js";
 import type { Chart } from "./types.js";
 
@@ -101,8 +103,8 @@ describe("R-00.4 the header declares the format version", () => {
       {
         line: 2,
         code: "unsupported-version",
-        message: "This chart says ChartDown 9.9; this parser reads 0.3–0.7",
-        values: { version: "9.9", supported: "0.3–0.7" },
+        message: "This chart says ChartDown 9.9; this parser reads 0.3–0.8",
+        values: { version: "9.9", supported: "0.3–0.8" },
       },
     ]);
   });
@@ -127,9 +129,16 @@ describe("R-00.4 the header declares the format version", () => {
   });
 
   it.each(EXAMPLES_07)(
-    "R-00.4 the spec's 0.7 example %s declares the supported version",
+    "R-00.4 the spec's 0.7 example %s is still read without a warning",
     (name) => {
-      expect(parse(fixture07(name)).version).toBe(SUPPORTED_VERSION);
+      expect(parse(fixture07(name)).warnings).toEqual([]);
+    },
+  );
+
+  it.each(EXAMPLES_08)(
+    "R-00.4 the spec's 0.8 example %s declares the supported version",
+    (name) => {
+      expect(parse(fixture08(name)).version).toBe(SUPPORTED_VERSION);
     },
   );
 

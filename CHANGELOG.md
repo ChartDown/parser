@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0
+
+The parser now implements [ChartDown 0.8](https://github.com/ChartDown/spec). Every valid 0.7 chart parses the same: in 0.7, `@use Name 3x` looked for a section called "Name 3x" and warned that it wasn't found.
+
+### New in the language (0.8)
+
+- **A count after `@use` (spec 5.2).** `@use Bridge 2 3x` (or `x3`, any case) plays the copied rows 3 times in a row. Each time through plays them as written: their own repeats, endings and one-pass cues start over, so a copied `:| 2x` with `@use … 2x` plays four times. After a D.S. or D.C. jump the copied section plays once. `0x` is read as `1x`, with a warning (`use-zero-times`).
+- **Passes in a counted copy (spec 9.1).** `> MD 2x: …` in a section with a `@use` count above 1 refers to the second time through the copy, and needs no repeat of its own.
+- **`chartdown: 0.8`** is a known version.
+
+### New in the package
+
+- `Section.use.times`: the count of a `@use`, when it has one.
+- `toJSON(chart)`: `sections[].times`, the count (1 for `0x`), or null with no count or no `@use` (Appendix A).
+- `playOrder(chart)` plays a counted copy that many times.
+- The pinned conformance suite is ChartDown/spec at `732dc25`: 148 cases, 6 of them new.
+- `READABLE_VERSIONS` reads 0.3 to 0.8; `SUPPORTED_VERSION` is `"0.8"`.
+
 ## 0.3.0
 
 The parser now implements [ChartDown 0.7](https://github.com/ChartDown/spec). Charts written for 0.3 to 0.6 parse the same, with no version warning, except that a chord quality written with an alias now takes its canonical form.

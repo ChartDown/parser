@@ -65,6 +65,8 @@ export interface RowJson {
 export interface SectionJson {
   name: string;
   use: string | null;
+  /** `@use Name 3x`: the count (1 for `0x`), or null with no count or no `@use` (ChartDown 0.8). */
+  times: number | null;
   notes: { md: boolean; roles: string[]; passes: number[]; text: string }[];
   rows: RowJson[];
 }
@@ -164,6 +166,7 @@ function sectionJson(section: Section, numbering: Numbering): SectionJson {
   return {
     name: section.name,
     use: section.use?.name ?? null,
+    times: section.use?.times ?? null,
     notes: section.notes.map((note) => ({
       md: note.md,
       roles: note.roles,

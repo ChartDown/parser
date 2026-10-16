@@ -103,6 +103,8 @@ function plan(sections: readonly Section[], warn?: Warn): Plan {
   });
   for (const section of sections) {
     if (section.rows.some((row) => row.bars.some((bar) => bar.repeatEnd))) continue;
+    // A copy played more than once (`@use Name 2x`) has its own passes (spec 9.1, ChartDown 0.8).
+    if ((section.use?.times ?? 1) > 1) continue;
     for (const note of section.notes)
       if (note.passes.length > 0) warn?.(note.line, "note-pass-without-repeat");
   }
@@ -163,6 +165,23 @@ export function playOrder(chart: Pick<Chart, "sections">): PlayStep[] {
   let back = false;
   let steps = 0;
   let after = false;
+  // Spec 5.2 (0.8): a section from `@use Name Nx` plays N times in a row, each time as written:
+  // its own repeats, endings and passes start over. After a D.S. or D.C. jump it plays once.
+  const played = new Map<number, number>();
+  const again = (at: number): boolean => {
+    const section = flat[at]?.section as number;
+    const times = chart.sections[section]?.use?.times ?? 1;
+    if (jumped || times < 2 || flat[at + 1]?.section === section) return false;
+    const done = played.get(section) ?? 1;
+    if (done >= times) return false;
+    played.set(section, done + 1);
+    i = flat.findIndex((item) => item.section === section);
+    pass = 1;
+    current = -1;
+    inSpan = false;
+    back = false;
+    return true;
+  };
 
   while (i < flat.length && steps++ < MAX_STEPS) {
     const item = flat[i] as Flat;
@@ -176,7 +195,7 @@ export function playOrder(chart: Pick<Chart, "sections">): PlayStep[] {
     back = false;
     if (item.ending && !item.ending.includes(pass)) {
       if (i === current) inSpan = false;
-      i++;
+      if (!again(i)) i++;
       continue;
     }
     if (!item.ending && !inSpan) pass = 1;
@@ -213,7 +232,7 @@ export function playOrder(chart: Pick<Chart, "sections">): PlayStep[] {
       after = true;
       continue;
     }
-    i++;
+    if (!again(i)) i++;
   }
   return order;
 }
