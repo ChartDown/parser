@@ -1,6 +1,6 @@
-// Reference copy of the ChartDown 0.8 playground parser, used only by
+// Reference copy of the ChartDown 0.9 playground parser, used only by
 // src/playground.test.ts to check that the TypeScript port matches it.
-// Source: github.com/ChartDown/spec, playground/index.html at 732dc25 (ChartDown 0.8).
+// Source: github.com/ChartDown/spec, playground/index.html at cf868c1 (ChartDown 0.9).
 // Copyright (c) 2026 ChartDown contributors. MIT License.
 // Extracted verbatim (music helpers, roles, parser, play order and JSON form); `export` added at the end.
 "use strict";
@@ -14,6 +14,21 @@ const NUMS  = ['1','b2','2','b3','3','4','#4','5','b6','6','b7','7'];
 const DYN = new Set(['pp','p','mp','mf','f','ff','cresc','decresc']);
 // Reserved words in { } (spec 9): compared without case, dots or spaces.
 const TEMPO_MARK = {rit:'rit.', accel:'accel.', atempo:'a tempo'};
+// Spec 11.3: what one beat of a tempo is, in eighth notes, and how a tempo is written.
+const BEAT_EIGHTHS = {h:4, 'h.':6, q:2, 'q.':3, e:1, 'e.':1.5, s:.5};
+function readTempo(text){
+  const m = /^(\d+(?:\.\d+)?)\s*(\S*)$/.exec(String(text).trim());
+  if(!m) return null;
+  const unit = m[2];
+  if(unit && unit !== '?' && !BEAT_EIGHTHS[unit]) return {bpm: parseFloat(m[1]), unit: null, unknown: false, bad: true};
+  return {bpm: parseFloat(m[1]), unit: unit && unit !== '?' ? unit : null, unknown: unit === '?', bad: false};
+}
+// Without a unit, the meter's beat: its bottom number, but the dotted quarter in 6/8, 9/8, 12/8.
+function meterBeat(meter){
+  const [top, bottom] = meter.split('/').map(Number);
+  if(bottom === 8 && top > 3 && top % 3 === 0) return 'q.';
+  return {2:'h', 4:'q', 8:'e', 16:'s'}[bottom] || null;
+}
 const NAV = {segno:'Segno', coda:'Coda', tocoda:'To Coda', fine:'Fine', ds:'D.S.', dsalcoda:'D.S. al Coda',
   dsalfine:'D.S. al Fine', dc:'D.C.', dcalcoda:'D.C. al Coda', dcalfine:'D.C. al Fine'};
 const JUMPS = ['ds','dsalcoda','dsalfine','dc','dcalcoda','dcalfine'];
@@ -61,7 +76,7 @@ const ROLE_ALIAS = {all:'all',band:'all',everyone:'all',drums:'drums',drum:'drum
 const ROLE_LABEL = {drums:'Drums',bass:'Bass',keys:'Keys',gtr:'Guitar',vox:'Vocals',sax:'Saxophone',tpt:'Trumpet',tbn:'Trombone',vln:'Violin'};
 let CUSTOM = {};
 // Spec 3: versions this parser reads. Any other is a warning, and the file is still read.
-const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8'];
+const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'];
 const roleLabel = r => L.roles[r] || ROLE_LABEL[r] || CUSTOM[r] || (r.charAt(0).toUpperCase() + r.slice(1));
 function parseRoles(s){
   const parts = s.split(/[,\/&\s]+/).filter(Boolean).map(x => x.toLowerCase());
@@ -250,10 +265,13 @@ function parse(src){
   doc.minor = !!(km && km[2]);
   const mm = /^(\d+)\s*\/\s*(\d+)$/.exec(doc.meta.meter || '4/4');
   doc.meter = mm ? mm[1] + '/' + mm[2] : '4/4';
-  doc.tempo = parseFloat(doc.meta.tempo) || null;
+  const headTempo = doc.meta.tempo ? readTempo(doc.meta.tempo) : null;
+  if(doc.meta.tempo && (!headTempo || headTempo.bad)) warn(metaLine.tempo, 'Write a tempo like  72  or  58 q.  (h, h., q, q., e, e., s or ?)');
+  doc.tempo = headTempo ? headTempo.bpm || null : parseFloat(doc.meta.tempo) || null;
 
   let cur = null, docKey = null, docMinor = doc.minor, pendingLabel = null;
   let meter = doc.meter, tempo = doc.tempo, pendingMeter = null, pendingTempo = null;
+  let tempoUnit = headTempo && headTempo.unit, tempoUnknown = !!(headTempo && headTempo.unknown);
   for(; i < lines.length; i++){
     const line = lines[i].trim(), n = i + 1;
     if(!line || line.startsWith('//')) continue;
@@ -282,8 +300,10 @@ function parse(src){
       continue;
     }
     if(/^@tempo\b/i.test(line)){
-      const tc = line.match(/^@tempo\s+(\d+(?:\.\d+)?)\s*$/i);
-      if(tc){ tempo = parseFloat(tc[1]); pendingTempo = tc[1]; } else warn(n, 'Write a tempo change like  @tempo 96');
+      const tc = readTempo(line.replace(/^@tempo\s*/i, ''));
+      if(tc && !tc.bad){ tempo = tc.bpm; tempoUnit = tc.unit; tempoUnknown = tc.unknown; pendingTempo = line.replace(/^@tempo\s*/i, '').trim(); }
+      else if(tc){ tempo = tc.bpm; tempoUnit = null; tempoUnknown = false; pendingTempo = String(tc.bpm); warn(n, 'Write a tempo change like  @tempo 96  or  @tempo 58 q.'); }
+      else warn(n, 'Write a tempo change like  @tempo 96');
       continue;
     }
     if(line.startsWith('@')){ warn(n, 'Unknown directive \u201c' + line.split(/\s/)[0] + '\u201d'); continue; }
@@ -293,7 +313,7 @@ function parse(src){
         if(b.pickup !== null && (cur.rows.length || bi)){ warn(n, 'A pickup must be the first bar of a section'); b.pickup = null; b.total = b.top; }
       });
       row.key = docKey; row.minor = docMinor;
-      row.meter = meter; row.tempo = tempo;
+      row.meter = meter; row.tempo = tempo; row.tempoUnit = tempoUnit; row.tempoUnknown = tempoUnknown;
       if(pendingLabel){ row.keyLabel = pendingLabel; pendingLabel = null; }
       if(pendingMeter){ row.meterLabel = pendingMeter; pendingMeter = null; }
       if(pendingTempo){ row.tempoLabel = pendingTempo; pendingTempo = null; }
@@ -431,7 +451,9 @@ function toJSON(doc){
       notes: s.notes.map(t => ({md:t.md, roles:roles(t.roles), passes:t.passes, text:t.text})),
       rows: s.rows.map(r => {
         const key = r.key || doc.keyRoot;
-        return {key, minor:r.minor, meter:r.meter, tempo:r.tempo, bars: r.bars.map(b => ({
+        const unit = r.tempo === null || r.tempoUnknown ? null : r.tempoUnit || meterBeat(r.meter);
+        return {key, minor:r.minor, meter:r.meter, tempo:r.tempo, tempoUnit:unit,
+          tempoEpm:unit ? r.tempo * BEAT_EIGHTHS[unit] : null, bars: r.bars.map(b => ({
           number:b.number, beats:b.total, pickup:!!b.pickup, meter:b.meter,
           repeatStart:!!b.rs, repeatEnd:!!b.re, times:b.re ? b.times : null,
           ending:b.ending ? endingList(b.ending) : null,

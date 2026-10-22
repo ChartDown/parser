@@ -2,8 +2,8 @@
 
 The parser for **ChartDown**, a plain-text notation for Nashville Number System charts: sections,
 bars, numbers, keys, dynamics and notes for each instrument. It implements the
-[ChartDown spec 0.8](https://github.com/ChartDown/spec), and reads charts written for 0.3 to
-0.8 without a warning. It has no runtime dependencies and runs the same in the browser and in Node.
+[ChartDown spec 0.9](https://github.com/ChartDown/spec), and reads charts written for 0.3 to
+0.9 without a warning. It has no runtime dependencies and runs the same in the browser and in Node.
 
 ```sh
 npm install chartdown
@@ -49,6 +49,21 @@ Also exported: `transposeKey`, `keyName` and `parseKeyName` for keys; `sectionLe
 for the share of a bar each token takes; and the music director's layer format (`parseLayer`,
 `formatLayer`, `placeLayer`), which keeps a band's notes apart from the chart. See the
 [changelog](CHANGELOG.md) for what changed from 0.1.
+
+## Tempo and its beat unit
+
+A tempo can say what one beat is (spec 11.3): `tempo: 58 q.`, `@tempo 87 q`, or `58 ?` when it
+isn't known yet. `row.tempo` is the number, `row.tempoUnit` the unit written, and
+`rowBeatUnit(row)` what the tempo counts, written or from the meter (the dotted quarter in 6/8,
+9/8 and 12/8). To play or compare tempos, `eighthsPerMinute(58, "q.")` is 174.
+
+```ts
+import { eighthsPerMinute, parse, rowBeatUnit } from "chartdown";
+
+const row = parse("---\nmeter: 6/8\ntempo: 58\n---\n## A\n1 | 4").sections[0].rows[0];
+const unit = rowBeatUnit(row); // "q."
+const epm = eighthsPerMinute(row.tempo, unit); // 174
+```
 
 ## Conformance
 

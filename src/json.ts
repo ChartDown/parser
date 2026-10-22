@@ -1,7 +1,14 @@
 import { layoutBeats } from "./beats.js";
 import { degree } from "./display.js";
 import { playOrder, type PlayStep } from "./navigation.js";
-import type { Bar, BarItem, Chart, Cue, Key, Numbering, Row, Section } from "./types.js";
+import { eighthsPerMinute, rowBeatUnit } from "./tempo.js";
+import type { Bar, BarItem, BeatUnit, Chart, Cue, Key, Numbering, Row, Section } from "./types.js";
+
+/** A row's tempo in eighth notes per minute, or null with no tempo or `?` (spec 11.3). */
+function unitOrNull(row: Row): number | null {
+  const unit = rowBeatUnit(row);
+  return unit && row.tempo !== undefined ? eighthsPerMinute(row.tempo, unit) : null;
+}
 
 export interface RiffNoteJson {
   rest?: true;
@@ -59,6 +66,10 @@ export interface RowJson {
   minor: boolean;
   meter: string;
   tempo: number | null;
+  /** What the tempo counts, written or from the meter (spec 11.3, 0.9); null with none or `?`. */
+  tempoUnit: BeatUnit | null;
+  /** The tempo in eighth notes per minute (0.9); null with no tempo or `?`. */
+  tempoEpm: number | null;
   bars: BarJson[];
 }
 
@@ -178,6 +189,8 @@ function sectionJson(section: Section, numbering: Numbering): SectionJson {
       minor: row.key.minor,
       meter: meterText(row.meter),
       tempo: row.tempo ?? null,
+      tempoUnit: rowBeatUnit(row) ?? null,
+      tempoEpm: unitOrNull(row),
       bars: row.bars.map((bar) => barJson(bar, row, numbering)),
     })),
   };

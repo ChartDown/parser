@@ -11,6 +11,13 @@ export const EXAMPLES_07 = ["lantern-bay", "northbound", "open-road", "syntax-to
 /** The ChartDown 0.8 examples of github.com/ChartDown/spec at 732dc25, in `fixtures/0.8`. */
 export const EXAMPLES_08 = ["lantern-bay", "northbound", "open-road", "syntax-tour"] as const;
 
+/** The ChartDown 0.9 examples of github.com/ChartDown/spec at cf868c1, in `fixtures/0.9`. */
+export const EXAMPLES_09 = ["lantern-bay", "northbound", "open-road", "syntax-tour"] as const;
+
+export function fixture09(name: string): string {
+  return readFileSync(new URL(`../fixtures/0.9/${name}.chartdown`, import.meta.url), "utf8");
+}
+
 export function fixture08(name: string): string {
   return readFileSync(new URL(`../fixtures/0.8/${name}.chartdown`, import.meta.url), "utf8");
 }
