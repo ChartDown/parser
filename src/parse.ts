@@ -2,22 +2,39 @@ import { parseNote, readHeader } from "./header.js";
 import { analyze } from "./navigation.js";
 import { parseRow } from "./row.js";
 import type { Chart, Key, Meter, ParseOptions, Row, Section, Warning } from "./types.js";
+import { readTempo, type TempoText } from "./tempo.js";
 import { createWarning, type Warn } from "./warnings.js";
 
 /** The ChartDown version this parser reads and writes (R-00.4). */
-export const SUPPORTED_VERSION = "0.8";
+export const SUPPORTED_VERSION = "0.9";
 
 /**
  * The versions a chart may declare without a warning (R-00.4). Charts written for 0.4 and 0.5
  * parse the same in 0.6; a mark that was free text in them now has its meaning (spec 17).
  */
-export const READABLE_VERSIONS: readonly string[] = ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8"];
+export const READABLE_VERSIONS: readonly string[] = [
+  "0.3",
+  "0.4",
+  "0.5",
+  "0.6",
+  "0.7",
+  "0.8",
+  "0.9",
+];
 
 function parseKey(text: string | undefined): Key {
   const match = /^([A-G][b#]?)(m?)/.exec(text ?? "C");
   return match
     ? { root: match[1] as string, minor: match[2] === "m" }
     : { root: "C", minor: false };
+}
+
+/** The line of a header field, for a warning about its value. */
+function headerLine(lines: readonly string[], bodyStart: number, name: string): number {
+  const at = lines
+    .slice(0, bodyStart)
+    .findIndex((line) => new RegExp(`^\\s*${name}\\s*:`, "i").test(line));
+  return at >= 0 ? at + 1 : 1;
 }
 
 function parseMeter(text: string | undefined): Meter {
@@ -46,7 +63,11 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
   let index = bodyStart;
   const key = parseKey(header.key);
   const startMeter = parseMeter(header.meter);
-  const startTempo = Number.parseFloat(header.tempo ?? "") || undefined;
+  // Spec 11.3 (0.9): a tempo may name its beat unit, or `?`; a unit it can't read is a warning.
+  const headTempo = header.tempo === undefined ? undefined : readTempo(header.tempo);
+  if (header.tempo !== undefined && (!headTempo || headTempo.badUnit))
+    warn(headerLine(lines, bodyStart, "tempo"), "bad-tempo");
+  const startTempo = headTempo?.bpm || Number.parseFloat(header.tempo ?? "") || undefined;
 
   const sections: Section[] = [];
   const startKeys = new Map<Section, Key>();
@@ -54,6 +75,7 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
   let currentKey = key;
   let currentMeter = startMeter;
   let currentTempo = startTempo;
+  let currentUnit: TempoText = headTempo ?? { bpm: 0 };
   let pendingKeyChange: Key | undefined;
   let pendingMeter: Meter | undefined;
   let pendingTempo: number | undefined;
@@ -109,10 +131,12 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
       continue;
     }
     if (/^@tempo\b/i.test(text)) {
-      const change = /^@tempo\s+(\d+(?:\.\d+)?)\s*$/i.exec(text);
+      const change = readTempo(text.replace(/^@tempo\s*/i, ""));
       if (change) {
-        currentTempo = Number.parseFloat(change[1] as string);
+        currentTempo = change.bpm;
+        currentUnit = change;
         pendingTempo = currentTempo;
+        if (change.badUnit) warn(line, "bad-tempo-directive");
       } else warn(line, "bad-tempo-directive");
       continue;
     }
@@ -133,6 +157,8 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
     });
     const row: Row = { line, key: { ...currentKey }, meter: { ...currentMeter }, bars };
     if (currentTempo !== undefined) row.tempo = currentTempo;
+    if (currentTempo !== undefined && currentUnit.unit) row.tempoUnit = currentUnit.unit;
+    if (currentTempo !== undefined && currentUnit.unconfirmed) row.tempoUnconfirmed = true;
     if (pendingKeyChange) {
       row.keyChange = { ...pendingKeyChange };
       pendingKeyChange = undefined;
@@ -176,6 +202,8 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
         bars: JSON.parse(JSON.stringify(row.bars)),
       };
       if (row.tempo !== undefined) copy.tempo = row.tempo;
+      if (row.tempoUnit) copy.tempoUnit = row.tempoUnit;
+      if (row.tempoUnconfirmed) copy.tempoUnconfirmed = true;
       if (row.meterChange) copy.meterChange = { ...row.meterChange };
       if (row.tempoChange !== undefined) copy.tempoChange = row.tempoChange;
       return copy;
@@ -194,6 +222,8 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
     warnings,
   };
   if (startTempo !== undefined) chart.tempo = startTempo;
+  if (startTempo !== undefined && headTempo?.unit) chart.tempoUnit = headTempo.unit;
+  if (startTempo !== undefined && headTempo?.unconfirmed) chart.tempoUnconfirmed = true;
   if (version !== undefined) chart.version = version;
   return chart;
 }

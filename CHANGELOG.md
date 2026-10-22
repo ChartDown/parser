@@ -1,8 +1,24 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
-- The package description says it reads charts written for 0.3 to 0.8 (it said 0.7 in 0.4.0).
+The parser now implements [ChartDown 0.9](https://github.com/ChartDown/spec). Every valid 0.8 chart parses the same; its rows only gain what their tempo counts.
+
+### New in the language (0.9)
+
+- **A tempo's beat unit (spec 11.3).** `tempo: 58 q.` and `@tempo 87 q` name what one beat is: `h`, `h.`, `q`, `q.`, `e`, `e.` or `s`, with or without a space. `?` says the number is known but not what it counts. Tempos can have decimals.
+- **Without a unit**, 6/8, 9/8 and 12/8 count the dotted quarter note, and every other meter its bottom number. An unwritten unit follows `@meter`; a written one stays.
+- **A unit it can't read** is a warning (`bad-tempo` in the header, `bad-tempo-directive` after `@tempo`), and the tempo counts the meter's beat.
+- **`chartdown: 0.9`** is a known version.
+
+### New in the package
+
+- `Row.tempoUnit` and `Chart.tempoUnit`: the unit written; `tempoUnconfirmed` for `?`.
+- `rowBeatUnit(row)`, `meterBeat(meter)`, `eighthsPerMinute(bpm, unit)`, `readTempo(text)` and `EIGHTHS_PER_BEAT`; the `BeatUnit` type.
+- `toJSON(chart)`: `rows[].tempoUnit` and `rows[].tempoEpm` (Appendix A).
+- The pinned conformance suite is ChartDown/spec at `cf868c1`: 156 cases, 8 of them new.
+- `READABLE_VERSIONS` reads 0.3 to 0.9; `SUPPORTED_VERSION` is `"0.9"`.
+- The package description says it reads charts written for 0.3 to 0.9.
 
 ## 0.4.0
 

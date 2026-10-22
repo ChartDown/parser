@@ -21,6 +21,9 @@ export interface Key {
   minor: boolean;
 }
 
+/** What one beat of a tempo is (spec 11.3, 0.9): half, quarter, eighth or sixteenth, `.` dotted. */
+export type BeatUnit = "h" | "h." | "q" | "q." | "e" | "e." | "s";
+
 export interface Meter {
   /** Top number: the beats a bar has, in the meter's own units. */
   beats: number;
@@ -124,6 +127,10 @@ export interface Row {
   meter: Meter;
   /** The tempo in effect for this row, in beats per minute (spec 11.3). */
   tempo?: number;
+  /** The unit written with that tempo (0.9); absent when none was, and the meter's beat counts. */
+  tempoUnit?: BeatUnit;
+  /** The tempo was written with `?`: what it counts isn't known yet (0.9). */
+  tempoUnconfirmed?: true;
   /** Set on the first row after an `@key` line. */
   keyChange?: Key;
   /** Set on the first row after an `@meter` line. */
@@ -177,6 +184,7 @@ export type WarningCode =
   | "bad-bar-heading"
   | "bad-meter-directive"
   | "bad-tempo-directive"
+  | "bad-tempo"
   | "pickup-and-meter"
   | "pickup-length"
   | "pickup-not-first"
@@ -210,6 +218,10 @@ export interface Chart {
   meter: Meter;
   /** The tempo at the start, in beats per minute (spec 3). */
   tempo?: number;
+  /** The unit written with the starting tempo (spec 11.3, 0.9). */
+  tempoUnit?: BeatUnit;
+  /** The starting tempo was written with `?` (0.9). */
+  tempoUnconfirmed?: true;
   /** Custom instrument ids declared in the `instruments` header. */
   instruments: string[];
   /**

@@ -1,7 +1,15 @@
-// chartdown: the ChartDown parser (spec 0.7).
+// chartdown: the ChartDown parser (spec 0.9).
 export { parse, READABLE_VERSIONS, SUPPORTED_VERSION } from "./parse.js";
 export { playOrder, type PlayStep } from "./navigation.js";
 export { layoutBeats, type Timed } from "./beats.js";
+export {
+  EIGHTHS_PER_BEAT,
+  eighthsPerMinute,
+  meterBeat,
+  readTempo,
+  rowBeatUnit,
+  type TempoText,
+} from "./tempo.js";
 export {
   toJSON,
   type BarJson,
@@ -17,6 +25,7 @@ export { WARNING_CODES } from "./warnings.js";
 export type {
   Bar,
   BarItem,
+  BeatUnit,
   Chart,
   Chord,
   Cue,
