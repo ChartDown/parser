@@ -31,7 +31,9 @@ describe("R-00.12 chartdown passes the official ChartDown conformance suite", ()
         // The runner exits with 1 and lists what failed.
         throw new Error((error as { stdout?: string }).stdout ?? String(error));
       }
-      expect(out).toMatch(/^\d+ passed, 0 failed$/m);
+      expect(out).toMatch(
+        /^\d+ passed, 0 failed \(\d+ parser cases also checked through the writer\)$/m,
+      );
       expect(out).not.toMatch(/skipped|Spec sections with no case/);
     },
   );

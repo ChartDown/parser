@@ -2,8 +2,8 @@
 
 The parser for **ChartDown**, a plain-text notation for Nashville Number System charts: sections,
 bars, numbers, keys, dynamics and notes for each instrument. It implements the
-[ChartDown spec 0.9](https://github.com/ChartDown/spec), and reads charts written for 0.3 to
-0.9 without a warning. It has no runtime dependencies and runs the same in the browser and in Node.
+[ChartDown spec 0.10](https://github.com/ChartDown/spec), reads charts written for 0.3 to
+0.10 without a warning, and writes a chart's canonical text. It has no runtime dependencies and runs the same in the browser and in Node.
 
 ```sh
 npm install chartdown
@@ -65,12 +65,27 @@ const unit = rowBeatUnit(row); // "q."
 const epm = eighthsPerMinute(row.tempo, unit); // 174
 ```
 
+## Writing ChartDown
+
+`write(json)` gives the canonical text of a chart's JSON form (spec Appendix C), so a chart built
+with a toolbar or a grid saves the same way in every app. A chart that parses with no warnings
+reads back as the same chart, all but its version, and writing the text again gives the same text.
+Comments and spellings are not in the JSON form, so they are not kept.
+
+```ts
+import { parse, toJSON, write } from "chartdown";
+
+write(toJSON(parse("## A\n1:3 4:1 | 5")));
+// "---\nchartdown: 0.10\n---\n\n## A\n1 4:1 | 5\n"
+```
+
 ## Conformance
 
 The spec defines a compatible parser as one that passes its conformance suite (`conformance/` in
 [github.com/ChartDown/spec](https://github.com/ChartDown/spec), Appendix B). This package passes it,
 and ships the adapter the suite's runner expects as `chartdown/conformance`: `toJSON(source)` for
-the JSON form and `display(source, { style, key })` for the chords as shown. In a clone of the spec
+the JSON form, `display(source, { style, key })` for the chords as shown and `write(json)` for the
+canonical text (Appendix C). In a clone of the spec
 repository, with `chartdown` installed:
 
 ```sh

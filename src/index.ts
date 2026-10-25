@@ -1,4 +1,4 @@
-// chartdown: the ChartDown parser (spec 0.9).
+// chartdown: the ChartDown parser (spec 0.10).
 export { parse, READABLE_VERSIONS, SUPPORTED_VERSION } from "./parse.js";
 export { playOrder, type PlayStep } from "./navigation.js";
 export { layoutBeats, type Timed } from "./beats.js";
@@ -59,6 +59,7 @@ export {
   type DisplayOptions,
 } from "./display.js";
 export { formatLayer, LAYER_VERSION, parseLayer, placeLayer } from "./layer.js";
+export { write, WRITTEN_VERSION } from "./write.js";
 export { sectionLength, type SectionLength } from "./length.js";
 export type {
   Layer,
