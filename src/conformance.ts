@@ -1,14 +1,20 @@
 // The adapter the official ChartDown conformance suite runs against (spec Appendix B; R-00.12).
 // `node conformance/run.mjs <adapter>` calls toJSON for every case and display for the cases of
-// spec 12, as the suite's README describes.
+// spec 12, and write for the writer cases of Appendix C, as the suite's README describes.
 import { chordFormatter, keyName, parseKeyName } from "./display.js";
 import { toJSON as jsonForm, type ChartJson } from "./json.js";
 import { parse } from "./parse.js";
+import { write as canonical } from "./write.js";
 import type { BarItem, Row } from "./types.js";
 
 /** The JSON form of a chart (spec Appendix A). */
 export function toJSON(source: string): ChartJson {
   return jsonForm(parse(source));
+}
+
+/** The canonical text of a chart's JSON form, for the writer cases (spec Appendix C). */
+export function write(json: ChartJson): string {
+  return canonical(json);
 }
 
 /** What a display case asks for: numbers or letters, and the key to show the chart in. */

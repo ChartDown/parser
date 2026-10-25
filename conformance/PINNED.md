@@ -2,7 +2,7 @@
 
 Everything in this folder except this file is copied verbatim from
 [github.com/ChartDown/spec](https://github.com/ChartDown/spec), folder `conformance/`, at commit
-`cf868c1065b1c6e8a8bd2972cfabb664eee8fe76` (ChartDown 0.9, spec Appendix B; moved from `732dc25`, ChartDown 0.8). Do not edit those
+`d9a6768b64dce3211f13c7fca02fd60caf1a1a01` (ChartDown 0.10, spec Appendices B and C; moved from `cf868c1`, ChartDown 0.9). Do not edit those
 files here: change them in the spec repository, then copy the folder again at the new commit and
 update the commit above, in a pull request of its own (owner's decision, October 13, 2026; T-1712).
 

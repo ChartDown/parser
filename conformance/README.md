@@ -1,8 +1,9 @@
 # ChartDown conformance cases
 
 The official test cases for the [ChartDown specification](../SPEC.md) (version
-0.9, see Appendix B). One file per spec section with parser rules, from
-`02-file-structure.md` to `15-grammar.md`. Each case checks one rule.
+0.10, see Appendix B). One file per spec section with parser rules, from
+`02-file-structure.md` to `15-grammar.md`, and `C-writing-chartdown.md` for
+writers (Appendix C). Each case checks one rule.
 
 ## Run them
 
@@ -28,6 +29,10 @@ export const toJSON = (source) => chartdown.toJSON(chartdown.parse(source));
 export function display(source, { style, key }) {
   // ...
 }
+
+// Optional: the canonical text of a chart's JSON form, for the writer cases
+// of spec Appendix C. Without it, those cases are skipped.
+export const write = (json) => chartdown.write(json);
 ```
 
 ```
@@ -83,12 +88,24 @@ then has:
 Display cases apply only to renderers. A parser that does not show charts can
 skip them.
 
+**Writer cases (spec Appendix C).** A case with a `canonical` block instead of
+a `json` block checks the text a writer makes of the chart: the runner reads
+the `chartdown` block with `toJSON`, writes it with `write`, and the result
+must be the `canonical` block exactly, every line ending with a line feed.
+When the chart has no warnings, the runner also reads the text back and checks
+that it gives the same JSON form (all but `chartdown` and `meta.chartdown`),
+and that writing it again gives the same text.
+
+With a `write` function, every parser case whose chart has no warnings is also
+checked this way, so a writer is tested on every rule of the spec.
+
 ## Add a case
 
 Every syntax change to the spec adds or updates a case here (see
 [CONTRIBUTING.md](../CONTRIBUTING.md)). Put it in the file of its spec section,
 under a heading that starts with the section number. Sections without parser
-rules have no file: 1 (goals), 4.2 (views), 16 (roadmap) and 17 (changelog).
+rules have no file: 1 (goals), 4.2 (views), 16 (roadmap), 17 (changelog) and
+C.6 (editing, a recommendation that a case can't check).
 
 Cases use original songs only. Lyric landmarks stay at 8 words or fewer, except
 in the cases that test that limit.

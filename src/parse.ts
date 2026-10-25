@@ -6,7 +6,7 @@ import { readTempo, type TempoText } from "./tempo.js";
 import { createWarning, type Warn } from "./warnings.js";
 
 /** The ChartDown version this parser reads and writes (R-00.4). */
-export const SUPPORTED_VERSION = "0.9";
+export const SUPPORTED_VERSION = "0.10";
 
 /**
  * The versions a chart may declare without a warning (R-00.4). Charts written for 0.4 and 0.5
@@ -20,6 +20,7 @@ export const READABLE_VERSIONS: readonly string[] = [
   "0.7",
   "0.8",
   "0.9",
+  "0.10",
 ];
 
 function parseKey(text: string | undefined): Key {

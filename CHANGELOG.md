@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0
+
+The parser now implements [ChartDown 0.10](https://github.com/ChartDown/spec), and writes charts as well as reading them. The syntax doesn't change: every 0.9 chart parses the same.
+
+### New in the language (0.10)
+
+- **Writing ChartDown (spec Appendix C).** The canonical text of a chart's JSON form: the header in a fixed order with `chartdown: 0.10` first; notes and `@use`; `@key`, `@meter` and `@tempo` only where they change, the tempo's unit only when it isn't the meter's beat; one line per row with a bar's parts in a fixed order and one spelling for reserved words; `:beats` only where a parser needs them.
+- **`chartdown: 0.10`** is a known version.
+
+### New in the package
+
+- `write(json)`: the canonical text of a chart's JSON form. A chart with no warnings reads back as the same chart (all but its version), and writing it again gives the same text. `WRITTEN_VERSION` is `"0.10"`.
+- The conformance adapter exports `write`, so the suite checks the writer cases and round-trips every warning-free parser case through it.
+- The pinned conformance suite is ChartDown/spec at `d9a6768`: 174 cases, 18 of them for the writer, and 105 parser cases also checked through the writer.
+- `READABLE_VERSIONS` reads 0.3 to 0.10; `SUPPORTED_VERSION` is `"0.10"`.
+
 ## 0.5.0
 
 The parser now implements [ChartDown 0.9](https://github.com/ChartDown/spec). Every valid 0.8 chart parses the same; its rows only gain what their tempo counts.

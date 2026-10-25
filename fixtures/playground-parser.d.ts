@@ -1,3 +1,4 @@
 // Loose types for the reference playground parser (test-only).
 export function parse(source: string): any;
 export function toJSON(doc: any): any;
+export function toChartDown(json: any): string;

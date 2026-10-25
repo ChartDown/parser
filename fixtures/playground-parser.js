@@ -1,8 +1,8 @@
-// Reference copy of the ChartDown 0.9 playground parser, used only by
+// Reference copy of the ChartDown 0.10 playground parser, used only by
 // src/playground.test.ts to check that the TypeScript port matches it.
-// Source: github.com/ChartDown/spec, playground/index.html at cf868c1 (ChartDown 0.9).
+// Source: github.com/ChartDown/spec, playground/index.html at d9a6768 (ChartDown 0.10).
 // Copyright (c) 2026 ChartDown contributors. MIT License.
-// Extracted verbatim (music helpers, roles, parser, play order and JSON form); `export` added at the end.
+// Extracted verbatim (music helpers, roles, parser, play order, JSON form and canonical text); `export` added at the end.
 "use strict";
 
 /* ---------- Music helpers ---------- */
@@ -76,7 +76,7 @@ const ROLE_ALIAS = {all:'all',band:'all',everyone:'all',drums:'drums',drum:'drum
 const ROLE_LABEL = {drums:'Drums',bass:'Bass',keys:'Keys',gtr:'Guitar',vox:'Vocals',sax:'Saxophone',tpt:'Trumpet',tbn:'Trombone',vln:'Violin'};
 let CUSTOM = {};
 // Spec 3: versions this parser reads. Any other is a warning, and the file is still read.
-const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'];
+const READABLE = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '0.10'];
 const roleLabel = r => L.roles[r] || ROLE_LABEL[r] || CUSTOM[r] || (r.charAt(0).toUpperCase() + r.slice(1));
 function parseRoles(s){
   const parts = s.split(/[,\/&\s]+/).filter(Boolean).map(x => x.toLowerCase());
@@ -467,5 +467,94 @@ function toJSON(doc){
   };
 }
 
+/* ---------- Canonical text (spec Appendix C) ---------- */
+const WRITES = '0.10';
+const HEAD_ORDER = ['instruments','title','artists','key','tempo','meter','feel','numbering'];
+const NAV_START = ['segno','coda'];
+const NAV_TEXT = {segno:'segno', coda:'coda', tocoda:'to coda', fine:'fine', ds:'D.S.', dsalcoda:'D.S. al coda',
+  dsalfine:'D.S. al fine', dc:'D.C.', dcalcoda:'D.C. al coda', dcalfine:'D.C. al fine'};
+// Spec C.3: decimals with no trailing zeros, at most 3 places.
+const num = x => String(Math.round(x * 1000) / 1000);
+// Spec C.5: leave out the biggest group of equal shares (ties: one that needs more than 3 places, then the
+// earliest); write the others. When the shares don't add up to the total, write them all.
+function beatsShown(list, total){
+  const sum = list.reduce((a, i) => a + i.beats, 0);
+  if(Math.abs(sum - total) > 0.001) return list.map(() => true);
+  const groups = [];
+  list.forEach(i => { const g = groups.find(g => Math.abs(g.v - i.beats) < 1e-9); if(g) g.n++; else groups.push({v:i.beats, n:1}); });
+  const odd = v => Math.abs(Math.round(v * 1000) / 1000 - v) > 1e-9;
+  const out = groups.reduce((a, g) => g.n > a.n || (g.n === a.n && odd(g.v) && !odd(a.v)) ? g : a);
+  return list.map(i => Math.abs(i.beats - out.v) >= 1e-9);
+}
+function toChartDown(json){
+  const out = ['---', 'chartdown: ' + WRITES];
+  const meta = json.meta || {};
+  const names = HEAD_ORDER.filter(k => k in meta).concat(Object.keys(meta).filter(k => k !== 'chartdown' && !HEAD_ORDER.includes(k)));
+  names.forEach(k => out.push(k + ': ' + meta[k]));
+  out.push('---');
+  // What a parser has in effect, starting from the header (spec C.3).
+  let key = json.key, minor = json.minor;
+  const mm = /^(\d+)\s*\/\s*(\d+)$/.exec(meta.meter || '4/4');
+  let meter = mm ? mm[1] + '/' + mm[2] : '4/4';
+  const ht = meta.tempo ? readTempo(meta.tempo) : null;
+  let tempo = ht ? ht.bpm : null, unit = ht && !ht.bad ? ht.unit : null, unknown = !!(ht && ht.unknown);
+  const who = (passes, roles) => [passes.map(p => p + 'x').join(','), roles.filter(r => r !== 'everyone').join(', ')].filter(Boolean).join(' ');
+  const timed = it => it.type === 'chord' || it.type === 'rest' || it.type === 'riff';
+  const token = (it, shown) => {
+    const b = shown ? ':' + num(it.beats) : '';
+    if(it.type === 'repeat') return '%';
+    if(it.type === 'tie') return '=';
+    if(it.type === 'rest') return 'x' + b;
+    if(it.type === 'riff'){
+      const ws = beatsShown(it.notes, it.beats);
+      return 'R[ ' + it.notes.map((n, k) => (n.rest ? 'x' : n.root) + (ws[k] ? ':' + num(n.beats) : '')).join(' ') + ' ]' + b;
+    }
+    const chord = it.root + it.quality + (it.bass ? '/' + it.bass : '');
+    return ["", "'", "''"][it.push] + (it.hold ? '<' + chord + '>' : chord) + b + (it.stab ? '!' : '') + (it.fermata ? '~' : '');
+  };
+  const bar = b => {
+    const parts = [];
+    if(b.pickup) parts.push('[p:' + num(b.beats) + ']');
+    if(b.meter) parts.push('[m:' + b.meter + ']');
+    if(b.ending) parts.push('[' + b.ending.join(',') + ']');
+    b.nav.filter(w => NAV_START.includes(w)).forEach(w => parts.push('{' + NAV_TEXT[w] + '}'));
+    if(b.dynamic) parts.push('{' + b.dynamic + '}');
+    if(b.tempoMark) parts.push('{' + (b.tempoMark === 'atempo' ? 'a tempo' : b.tempoMark) + '}');
+    const ts = b.items.filter(timed), shown = beatsShown(ts, b.beats);
+    b.items.forEach(it => parts.push(token(it, timed(it) && shown[ts.indexOf(it)])));
+    b.cues.forEach(c => { const w = who(c.passes, c.roles); parts.push('{' + (w ? w + ': ' : '') + c.text + '}'); });
+    if(b.lyric !== null) parts.push('"' + b.lyric + '"');
+    b.nav.filter(w => !NAV_START.includes(w)).forEach(w => parts.push('{' + NAV_TEXT[w] + '}'));
+    return parts.join(' ');
+  };
+  json.sections.forEach((s, si) => {
+    // Spec C.3: copied rows take the key in effect when their section starts.
+    if(s.use && s.rows.length && (s.rows[0].key !== key || s.rows[0].minor !== minor)){
+      key = s.rows[0].key; minor = s.rows[0].minor;
+      if(si) out.push('@key ' + key + (minor ? 'm' : ''));
+    }
+    out.push('', '## ' + s.name);
+    s.notes.forEach(t => {
+      if(!t.md){ out.push('> ' + t.text); return; }
+      const w = who(t.passes, t.roles);
+      out.push('> MD' + (w ? ' ' + w : '') + ': ' + t.text);
+    });
+    if(s.use){ out.push('@use ' + s.use + (s.times !== null && s.times !== undefined ? ' ' + s.times + 'x' : '')); return; }
+    s.rows.forEach(r => {
+      if(r.key !== key || r.minor !== minor){ key = r.key; minor = r.minor; out.push('@key ' + key + (minor ? 'm' : '')); }
+      if(r.meter !== meter){ meter = r.meter; out.push('@meter ' + meter); }
+      const counts = unknown ? null : unit || meterBeat(meter);
+      if(r.tempo !== null && (r.tempo !== tempo || r.tempoUnit !== counts)){
+        tempo = r.tempo; unknown = r.tempoUnit === null; unit = unknown || r.tempoUnit === meterBeat(meter) ? null : r.tempoUnit;
+        out.push('@tempo ' + num(tempo) + (unknown ? ' ?' : unit ? ' ' + unit : ''));
+      }
+      const first = r.bars[0], last = r.bars[r.bars.length - 1];
+      out.push((first.repeatStart ? '|: ' : '') + r.bars.map(bar).join(' | ') +
+        (last.repeatEnd ? ' :|' + (last.times !== 2 ? ' ' + last.times + 'x' : '') : ''));
+    });
+  });
+  return out.join('\n').replace(/[ \t]+$/gm, '') + '\n';
+}
 
-export { parse, toJSON };
+
+export { parse, toJSON, toChartDown };

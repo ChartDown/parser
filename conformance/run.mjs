@@ -7,6 +7,8 @@
 //   toJSON(source)            -> the JSON form of the chart (spec Appendix A)
 //   display(source, options)  -> optional, for the display cases of spec 12:
 //                                { homeKey, keys, rows } as described in README.md
+//   write(json)               -> optional, for the writer cases of spec Appendix C:
+//                                the canonical text of a chart's JSON form
 import { readFileSync, readdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
@@ -15,21 +17,22 @@ const DIR = new URL("./", import.meta.url);
 
 // Spec sections with parser rules: each needs at least one case.
 const REQUIRED = ["2", "3", "4", "4.1", "5", "5.1", "5.2", "5.3", "6", "7", "7.1", "8", "9", "9.1",
-  "10", "10.1", "11.1", "11.2", "11.3", "12", "13", "14", "15"];
+  "10", "10.1", "11.1", "11.2", "11.3", "12", "13", "14", "15", "C", "C.1", "C.2", "C.3", "C.4", "C.5"];
 
 function readCases() {
   const cases = [];
-  for (const file of readdirSync(DIR).filter(f => /^\d{2}(\.\d+)?-.+\.md$/.test(f)).sort()) {
+  for (const file of readdirSync(DIR).filter(f => /^(\d{2}|[A-Z])(\.\d+)?-.+\.md$/.test(f)).sort()) {
     const chunks = readFileSync(new URL(file, DIR), "utf8").split(/^### /m).slice(1);
     for (const chunk of chunks) {
       const heading = chunk.slice(0, chunk.indexOf("\n")).trim();
       const block = lang => new RegExp("```" + lang + "\\n([\\s\\S]*?)```").exec(chunk)?.[1];
       const source = block("chartdown"), expected = block("json"), display = block("display");
-      if (source === undefined || expected === undefined) {
-        throw new Error(`${file}: "${heading}" needs a chartdown block and a json block`);
+      const canonical = block("canonical");
+      if (source === undefined || (expected === undefined) === (canonical === undefined)) {
+        throw new Error(`${file}: "${heading}" needs a chartdown block and a json or canonical block`);
       }
-      cases.push({ file, heading, section: heading.split(" ")[0], source,
-        expected: JSON.parse(expected), display: display && JSON.parse(display) });
+      cases.push({ file, heading, section: heading.split(" ")[0], source, canonical,
+        expected: expected && JSON.parse(expected), display: display && JSON.parse(display) });
     }
   }
   return cases;
@@ -41,10 +44,11 @@ function playground() {
   const code = html.slice(html.indexOf('"use strict";'), html.indexOf("const ed = document"));
   const ctx = {};
   vm.createContext(ctx);
-  vm.runInContext(code + "\nthis.api = {parse, toJSON, showRoot, showQuality, rowCtx, state};", ctx);
+  vm.runInContext(code + "\nthis.api = {parse, toJSON, toChartDown, showRoot, showQuality, rowCtx, state};", ctx);
   const pg = ctx.api;
   return {
     toJSON: source => pg.toJSON(pg.parse(source)),
+    write: json => pg.toChartDown(json),
     display(source, { style, key }) {
       const doc = pg.parse(source);
       pg.state.mode = style;
@@ -100,18 +104,40 @@ function mismatch(actual, expected, path) {
   return null;
 }
 
+// Spec Appendix C: the canonical text reads back as the same chart (all but its version), and writing
+// it again gives the same text. Applies to charts with no warnings.
+function roundTrip(impl, source) {
+  const strip = j => ({ ...j, chartdown: null, meta: { ...j.meta, chartdown: null }, warnings: [] });
+  const json = impl.toJSON(source), text = impl.write(json), again = impl.toJSON(text);
+  const problem = mismatch(strip(again), strip(json), "");
+  if (problem) return `read back differently: ${problem}\n     text:\n${text}`;
+  if (impl.write(again) !== text) return `writing it again changed it:\n${impl.write(again)}`;
+  if ((again.warnings ?? []).length) return `its text has warnings: ${JSON.stringify(again.warnings)}\n${text}`;
+  return null;
+}
+const showText = t => JSON.stringify(t).slice(1, -1).replace(/\\n/g, "\n       ");
+
 const impl = process.argv[2]
   ? await import(pathToFileURL(process.argv[2]).href)
   : playground();
 const cases = readCases();
-let failed = 0, skipped = 0;
+let failed = 0, skipped = 0, trips = 0;
 for (const c of cases) {
-  if (c.display && !impl.display) { skipped++; continue; }
+  if ((c.display && !impl.display) || (c.canonical !== undefined && !impl.write)) { skipped++; continue; }
   let problem;
   try {
-    problem = c.display
-      ? mismatch(impl.display(c.source, c.display), c.expected, "")
-      : mismatch(impl.toJSON(c.source), c.expected, "");
+    if (c.canonical !== undefined) {
+      const json = impl.toJSON(c.source), text = impl.write(json);
+      problem = text === c.canonical
+        ? ((json.warnings ?? []).length ? null : roundTrip(impl, c.source))
+        : `wrote:\n       ${showText(text)}\n     expected:\n       ${showText(c.canonical)}`;
+    } else if (c.display) {
+      problem = mismatch(impl.display(c.source, c.display), c.expected, "");
+    } else {
+      problem = mismatch(impl.toJSON(c.source), c.expected, "");
+      // Every parser case with no warnings must also survive a round trip through a writer.
+      if (!problem && impl.write && !(c.expected.warnings ?? []).length) { trips++; problem = roundTrip(impl, c.source); }
+    }
   } catch (e) {
     problem = `threw ${e && e.stack || e}`;
   }
@@ -122,5 +148,6 @@ const missing = REQUIRED.filter(s => !covered.has(s));
 const unknown = [...covered].filter(s => !REQUIRED.includes(s));
 if (missing.length) console.log(`Spec sections with no case: ${missing.join(", ")}`);
 if (unknown.length) console.log(`Cases for sections without parser rules: ${unknown.join(", ")}`);
-console.log(`${cases.length - failed - skipped} passed, ${failed} failed` + (skipped ? `, ${skipped} display cases skipped` : ""));
+console.log(`${cases.length - failed - skipped} passed, ${failed} failed` + (skipped ? `, ${skipped} display or writer cases skipped` : "") +
+  (trips ? ` (${trips} parser cases also checked through the writer)` : ""));
 process.exit(failed || missing.length || unknown.length ? 1 : 0);

@@ -41,15 +41,16 @@ describe("T-107 the chartdown package on npm", () => {
   });
 });
 
-describe("T-2301 the chartdown package on npm, version 0.5.0 for ChartDown 0.9", () => {
-  it("T-2301 is version 0.5.0 of the parser for spec 0.9, with its changelog in the package", () => {
-    expect(manifest.version).toBe("0.5.0");
+describe("T-2901 the chartdown package on npm, version 0.6.0 for ChartDown 0.10", () => {
+  it("T-2901 is version 0.6.0 of the parser for spec 0.10, with its changelog in the package", () => {
+    expect(manifest.version).toBe("0.6.0");
     // The description and README name the spec the parser implements.
     expect(manifest.description).toContain(`spec ${SUPPORTED_VERSION}`);
     expect(manifest.files).toContain("CHANGELOG.md");
     const changelog = readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8");
     // An unreleased section may come first, above the latest release.
-    expect(changelog).toMatch(/^# Changelog\n\n(## Unreleased[^\n]*\n[\s\S]*?\n)?## 0\.5\.0\n/);
+    expect(changelog).toMatch(/^# Changelog\n\n(## Unreleased[^\n]*\n[\s\S]*?\n)?## 0\.6\.0\n/);
+    expect(changelog).toContain("## 0.5.0");
     expect(changelog).toContain("## 0.4.0");
     expect(changelog).toContain("## 0.3.0");
     expect(changelog).toContain("## 0.2.0");
@@ -60,7 +61,7 @@ describe("T-2301 the chartdown package on npm, version 0.5.0 for ChartDown 0.9",
   });
 
   it(
-    "T-2301 a packed copy installs in a new project and parses Northbound",
+    "T-2901 a packed copy installs in a new project, parses Northbound and writes it",
     { timeout: 180_000 },
     () => {
       const root = fileURLToPath(new URL("..", import.meta.url));
@@ -70,7 +71,7 @@ describe("T-2301 the chartdown package on npm, version 0.5.0 for ChartDown 0.9",
       const work = mkdtempSync(join(tmpdir(), "chartdown-pack-"));
       execFileSync("npm", ["pack", "--pack-destination", work, "--silent"], { cwd: root });
       const tarball = readdirSync(work).find((name) => name.endsWith(".tgz")) as string;
-      expect(tarball).toBe("chartdown-0.5.0.tgz");
+      expect(tarball).toBe("chartdown-0.6.0.tgz");
 
       const project = join(work, "project");
       execFileSync("mkdir", [project]);
@@ -94,18 +95,20 @@ describe("T-2301 the chartdown package on npm, version 0.5.0 for ChartDown 0.9",
       writeFileSync(
         join(project, "check.mjs"),
         `import { readFileSync } from "node:fs";
-import { parse, playOrder, SUPPORTED_VERSION, toJSON } from "chartdown";
+import { parse, playOrder, SUPPORTED_VERSION, toJSON, write } from "chartdown";
 const chart = parse(readFileSync(${JSON.stringify(northbound)}, "utf8"));
-console.log(JSON.stringify({ version: SUPPORTED_VERSION, sections: chart.sections.length, warnings: chart.warnings.length, steps: playOrder(chart).length, json: toJSON(chart).chartdown }));`,
+console.log(JSON.stringify({ version: SUPPORTED_VERSION, sections: chart.sections.length, warnings: chart.warnings.length, steps: playOrder(chart).length, json: toJSON(chart).chartdown, written: write(toJSON(chart)).split("\\n")[1] }));`,
       );
       const out = execFileSync(process.execPath, ["check.mjs"], { cwd: project }).toString();
       expect(JSON.parse(out)).toEqual({
-        // The parser reads ChartDown 0.9 since 0.5.0; Northbound still declares 0.6.
-        version: "0.9",
+        // The parser reads ChartDown 0.10 since 0.6.0; Northbound still declares 0.6.
+        version: "0.10",
         sections: 5,
         warnings: 0,
         steps: 57,
         json: "0.6",
+        // Its canonical text declares the version the writer writes (spec C.1).
+        written: "chartdown: 0.10",
       });
     },
   );
@@ -155,7 +158,9 @@ describe("R-00.12 the package ships the adapter for the official conformance sui
         [join(root, "conformance", "run.mjs"), join(project, "adapter.mjs")],
         { encoding: "utf8" },
       );
-      expect(out).toMatch(/^\d+ passed, 0 failed$/m);
+      expect(out).toMatch(
+        /^\d+ passed, 0 failed \(\d+ parser cases also checked through the writer\)$/m,
+      );
     },
   );
 });
