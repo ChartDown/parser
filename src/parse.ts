@@ -71,7 +71,8 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
   const startTempo = headTempo?.bpm || Number.parseFloat(header.tempo ?? "") || undefined;
 
   const sections: Section[] = [];
-  const startKeys = new Map<Section, Key>();
+  // The key in effect at each `@use` line, and a `@key` written just before it (spec 5.2, 0.10).
+  const useKeys = new Map<Section, { key: Key; change?: Key }>();
   let section: Section | undefined;
   let currentKey = key;
   let currentMeter = startMeter;
@@ -89,7 +90,6 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
     if (text.startsWith("##")) {
       section = { name: text.replace(/^#+\s*/, "") || "Section", line, notes: [], rows: [] };
       sections.push(section);
-      startKeys.set(section, currentKey);
       continue;
     }
     if (!section) {
@@ -107,6 +107,11 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
       const name = counted ? (counted[1] as string) : (use[1] as string).trim();
       const times = counted ? Number(counted[2] ?? counted[3]) : undefined;
       section.use = { name, line };
+      useKeys.set(
+        section,
+        pendingKeyChange ? { key: currentKey, change: pendingKeyChange } : { key: currentKey },
+      );
+      pendingKeyChange = undefined;
       if (times === 0) {
         warn(line, "use-zero-times");
         section.use.times = 1;
@@ -176,7 +181,7 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
   }
 
   // `@use` copies the rows of the first earlier section with that name, in the key
-  // in effect where the reusing section starts (spec 5.2). It must be the section's
+  // in effect at the `@use` line, so a `@key` just before it applies (spec 5.2, 0.10). It must be the section's
   // only content line: a section with its own rows keeps them.
   sections.forEach((target, position) => {
     if (target.use === undefined) return;
@@ -192,13 +197,13 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
       warn(target.use.line, "use-not-found", { name: target.use.name });
       return;
     }
-    const startKey = startKeys.get(target) ?? key;
+    const { key: useKey, change } = useKeys.get(target) ?? { key };
     // The copy keeps the original's meter and tempo (and their change marks); only the key is
     // the current one (spec 5.2).
     target.rows = original.rows.map((row) => {
       const copy: Row = {
         line: row.line,
-        key: { ...startKey },
+        key: { ...useKey },
         meter: { ...row.meter },
         bars: JSON.parse(JSON.stringify(row.bars)),
       };
@@ -209,6 +214,8 @@ export function parse(source: string, options: ParseOptions = {}): Chart {
       if (row.tempoChange !== undefined) copy.tempoChange = row.tempoChange;
       return copy;
     });
+    const first = target.rows[0];
+    if (change && first) first.keyChange = { ...change };
   });
 
   analyze(sections, warn);

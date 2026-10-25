@@ -148,14 +148,7 @@ export function write(json: ChartJson): string {
   let unknown = startTempo?.unconfirmed === true;
   const keyLine = () => `@key ${key}${minor ? "m" : ""}`;
 
-  json.sections.forEach((section, index) => {
-    // Copied rows take the key in effect when their section starts (spec C.3).
-    const first = section.rows[0];
-    if (section.use && first && (first.key !== key || first.minor !== minor)) {
-      key = first.key;
-      minor = first.minor;
-      if (index > 0) out.push(keyLine());
-    }
+  for (const section of json.sections) {
     out.push("", `## ${section.name}`);
     for (const note of section.notes) {
       if (!note.md) {
@@ -165,9 +158,16 @@ export function write(json: ChartJson): string {
       const to = who(note.passes, note.roles);
       out.push(`> MD${to ? ` ${to}` : ""}: ${note.text}`);
     }
+    // Copied rows take the key in effect at the `@use` line (spec C.3).
+    const first = section.rows[0];
+    if (section.use && first && (first.key !== key || first.minor !== minor)) {
+      key = first.key;
+      minor = first.minor;
+      out.push(keyLine());
+    }
     if (section.use) {
       out.push(`@use ${section.use}${section.times === null ? "" : ` ${section.times}x`}`);
-      return;
+      continue;
     }
     for (const row of section.rows) {
       if (row.key !== key || row.minor !== minor) {
@@ -194,6 +194,6 @@ export function write(json: ChartJson): string {
           (end?.repeatEnd ? ` :|${end.times !== 2 ? ` ${end.times}x` : ""}` : ""),
       );
     }
-  });
+  }
   return `${out.join("\n").replace(/[ \t]+$/gm, "")}\n`;
 }

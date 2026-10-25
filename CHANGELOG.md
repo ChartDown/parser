@@ -7,6 +7,7 @@ The parser now implements [ChartDown 0.10](https://github.com/ChartDown/spec), a
 ### New in the language (0.10)
 
 - **Writing ChartDown (spec Appendix C).** The canonical text of a chart's JSON form: the header in a fixed order with `chartdown: 0.10` first; notes and `@use`; `@key`, `@meter` and `@tempo` only where they change, the tempo's unit only when it isn't the meter's beat; one line per row with a bar's parts in a fixed order and one spelling for reserved words; `:beats` only where a parser needs them.
+- **A `@key` just before `@use` applies to the copy (spec 5.2).** The copy takes the key in effect at the `@use` line, not where its section starts, and that key stays for the sections after. Before 0.10 such a `@key` changed nothing for the copy.
 - **`chartdown: 0.10`** is a known version.
 
 ### New in the package

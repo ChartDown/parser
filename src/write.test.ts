@@ -79,11 +79,15 @@ describe("R-00.19 the canonical text of a chart (ChartDown 0.10, spec Appendix C
     );
   });
 
-  it("R-00.19 a reused section's key change goes at the end of the section before", () => {
-    const text = canonical("---\nkey: G\n---\n## Verse\n1\n\n@key A\n## Up\n@use Verse\n");
-    expect(text).toBe(
-      "---\nchartdown: 0.10\nkey: G\n---\n\n## Verse\n1\n@key A\n\n## Up\n@use Verse\n",
+  it("R-00.19 a @key just before @use applies to the copy, and is written there after the notes", () => {
+    const text = canonical(
+      "---\nkey: G\n---\n## Verse\n1\n## Up\n> MD: Up a step\n@key A\n@use Verse\n## Out\n4\n",
     );
+    expect(text).toBe(
+      "---\nchartdown: 0.10\nkey: G\n---\n\n## Verse\n1\n\n## Up\n> MD: Up a step\n@key A\n@use Verse\n\n## Out\n4\n",
+    );
+    const json = toJSON(parse(text));
+    expect(json.sections.map((section) => section.rows[0]?.key)).toEqual(["G", "A", "A"]);
   });
 
   it("R-00.19 a bar's parts follow the order of spec C.4, with one spelling for reserved words", () => {
