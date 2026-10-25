@@ -1,6 +1,6 @@
 // Reference copy of the ChartDown 0.10 playground parser, used only by
 // src/playground.test.ts to check that the TypeScript port matches it.
-// Source: github.com/ChartDown/spec, playground/index.html at d9a6768 (ChartDown 0.10).
+// Source: github.com/ChartDown/spec, playground/index.html at 27fb7f4 (ChartDown 0.10).
 // Copyright (c) 2026 ChartDown contributors. MIT License.
 // Extracted verbatim (music helpers, roles, parser, play order, JSON form and canonical text); `export` added at the end.
 "use strict";
@@ -276,7 +276,7 @@ function parse(src){
     const line = lines[i].trim(), n = i + 1;
     if(!line || line.startsWith('//')) continue;
     if(line.startsWith('##')){
-      cur = {name: line.replace(/^#+\s*/,'') || 'Section', notes:[], rows:[], use:null, startKey:docKey, startMinor:docMinor};
+      cur = {name: line.replace(/^#+\s*/,'') || 'Section', notes:[], rows:[], use:null};
       doc.sections.push(cur); continue;
     }
     if(!cur){ warn(n, 'Bars need a section first, like  ## Verse 1'); continue; }
@@ -286,6 +286,8 @@ function parse(src){
       // Spec 5.2: a count at the end (3x, or x3 as in 0.5) plays the copied rows that many times.
       const c = u[1].trim().match(/^(.*?)\s+(?:(\d+)x|x(\d+))$/i);
       cur.use = c ? c[1] : u[1].trim(); cur.useTimes = c ? +(c[2] || c[3]) : null; cur.useLine = n;
+      // Spec 5.2: the copy takes the key in effect at the @use line, so a @key just before it applies.
+      cur.useKey = docKey; cur.useMinor = docMinor; cur.useLabel = pendingLabel; pendingLabel = null;
       if(cur.useTimes === 0){ warn(n, 'A section plays at least once; 0x is read as 1x'); cur.useTimes = 1; }
       continue;
     }
@@ -326,7 +328,8 @@ function parse(src){
       const src2 = doc.sections.slice(0, idx).find(x => x.name.toLowerCase() === s.use.toLowerCase() && x.rows.length);
       if(src2){
         s.rows = JSON.parse(JSON.stringify(src2.rows));
-        s.rows.forEach(r => { r.key = s.startKey; r.minor = s.startMinor; delete r.keyLabel; });
+        s.rows.forEach(r => { r.key = s.useKey; r.minor = s.useMinor; delete r.keyLabel; });
+        if(s.useLabel && s.rows.length) s.rows[0].keyLabel = s.useLabel;
       } else warn(s.useLine, 'Can\u2019t find an earlier section named \u201c' + s.use + '\u201d');
     }
   });
@@ -527,18 +530,17 @@ function toChartDown(json){
     b.nav.filter(w => !NAV_START.includes(w)).forEach(w => parts.push('{' + NAV_TEXT[w] + '}'));
     return parts.join(' ');
   };
-  json.sections.forEach((s, si) => {
-    // Spec C.3: copied rows take the key in effect when their section starts.
-    if(s.use && s.rows.length && (s.rows[0].key !== key || s.rows[0].minor !== minor)){
-      key = s.rows[0].key; minor = s.rows[0].minor;
-      if(si) out.push('@key ' + key + (minor ? 'm' : ''));
-    }
+  json.sections.forEach(s => {
     out.push('', '## ' + s.name);
     s.notes.forEach(t => {
       if(!t.md){ out.push('> ' + t.text); return; }
       const w = who(t.passes, t.roles);
       out.push('> MD' + (w ? ' ' + w : '') + ': ' + t.text);
     });
+    // Spec C.3: copied rows take the key in effect at the @use line.
+    if(s.use && s.rows.length && (s.rows[0].key !== key || s.rows[0].minor !== minor)){
+      key = s.rows[0].key; minor = s.rows[0].minor; out.push('@key ' + key + (minor ? 'm' : ''));
+    }
     if(s.use){ out.push('@use ' + s.use + (s.times !== null && s.times !== undefined ? ' ' + s.times + 'x' : '')); return; }
     s.rows.forEach(r => {
       if(r.key !== key || r.minor !== minor){ key = r.key; minor = r.minor; out.push('@key ' + key + (minor ? 'm' : '')); }

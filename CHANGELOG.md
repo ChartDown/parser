@@ -14,7 +14,7 @@ The parser now implements [ChartDown 0.10](https://github.com/ChartDown/spec), a
 
 - `write(json)`: the canonical text of a chart's JSON form. A chart with no warnings reads back as the same chart (all but its version), and writing it again gives the same text. `WRITTEN_VERSION` is `"0.10"`.
 - The conformance adapter exports `write`, so the suite checks the writer cases and round-trips every warning-free parser case through it.
-- The pinned conformance suite is ChartDown/spec at `d9a6768`: 174 cases, 18 of them for the writer, and 105 parser cases also checked through the writer.
+- The pinned conformance suite is ChartDown/spec at `27fb7f4`: 177 cases, 20 of them for the writer, and 106 parser cases also checked through the writer.
 - `READABLE_VERSIONS` reads 0.3 to 0.10; `SUPPORTED_VERSION` is `"0.10"`.
 
 ## 0.5.0

@@ -281,6 +281,40 @@ tempo: 80
 1
 ```
 
+### C.3 The key of a copy is written just before @use, after the notes
+
+```chartdown
+---
+key: G
+---
+## Chorus
+4 | 1
+## Last chorus
+@key A
+> MD: Up a whole step.
+@use Chorus
+## Tag
+5 | 1
+```
+
+```canonical
+---
+chartdown: 0.10
+key: G
+---
+
+## Chorus
+4 | 1
+
+## Last chorus
+> MD: Up a whole step.
+@key A
+@use Chorus
+
+## Tag
+5 | 1
+```
+
 ### C.4 Bars are separated by " | "; repeat signs at the ends, with the count only when it isn't 2
 
 ```chartdown
@@ -345,6 +379,27 @@ chartdown: 0.10
 
 ## A
 {mf} {a tempo} 1 {D.C. al fine} | 4 {fine}
+```
+
+### C.4 Navigation marks keep their order in nav
+
+```chartdown
+## A
+{segno} 1 | 5 {D.S. al Coda} {to coda}
+## B
+{coda} 1
+```
+
+```canonical
+---
+chartdown: 0.10
+---
+
+## A
+{segno} 1 | 5 {D.S. al coda} {to coda}
+
+## B
+{coda} 1
 ```
 
 ### C.5 Chords and marks in their order, qualities in their canonical form
